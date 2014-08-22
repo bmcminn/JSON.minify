@@ -1,0 +1,11 @@
+/*
+this is a
+multi line comment */{
+
+"foo"
+:
+    "bar/*"// something
+    ,   "b\"az":/*
+something else */"blah"
+
+}
