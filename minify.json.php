@@ -1,57 +1,54 @@
 <?php
 
-/*! JSON.minify()
-	v0.1 (c) Kyle Simpson
-	MIT License
-*/
+  /**
+   * Minifies JSON string data for prasing by removing inline and multiline comments
+   * @author Kyle Simpson <github:getify>
+   * @author Brandtley McMinn <github:bmcminn>
+   * @version 0.2.0
+   * @license MIT License
+   * @param  string   $json   unminified JSON string data
+   * @return string           the minified JSON string data with comments removed
+   */
 
-function json_minify($json) {
-	$tokenizer = "/\"|(\/\*)|(\*\/)|(\/\/)|\n|\r/";
-	$in_string = false;
-	$in_multiline_comment = false;
-	$in_singleline_comment = false;
-	$tmp; $tmp2; $new_str = array(); $ns = 0; $from = 0; $lc; $rc; $lastIndex = 0;
-		
-	while (preg_match($tokenizer,$json,$tmp,PREG_OFFSET_CAPTURE,$lastIndex)) {
-		$tmp = $tmp[0];
-		$lastIndex = $tmp[1] + strlen($tmp[0]);
-		$lc = substr($json,0,$lastIndex - strlen($tmp[0]));
-		$rc = substr($json,$lastIndex);
-		if (!$in_multiline_comment && !$in_singleline_comment) {
-			$tmp2 = substr($lc,$from);
-			if (!$in_string) {
-				$tmp2 = preg_replace("/(\n|\r|\s)*/","",$tmp2);
-			}
-			$new_str[] = $tmp2;
-		}
-		$from = $lastIndex;
-			
-		if ($tmp[0] == "\"" && !$in_multiline_comment && !$in_singleline_comment) {
-			preg_match("/(\\\\)*$/",$lc,$tmp2);
-			if (!$in_string || !$tmp2 || (strlen($tmp2[0]) % 2) == 0) {	// start of string with ", or unescaped " character found to end string
-				$in_string = !$in_string;
-			}
-			$from--; // include " character in next catch
-			$rc = substr($json,$from);
-		}
-		else if ($tmp[0] == "/*" && !$in_string && !$in_multiline_comment && !$in_singleline_comment) {
-			$in_multiline_comment = true;
-		}
-		else if ($tmp[0] == "*/" && !$in_string && $in_multiline_comment && !$in_singleline_comment) {
-			$in_multiline_comment = false;
-		}
-		else if ($tmp[0] == "//" && !$in_string && !$in_multiline_comment && !$in_singleline_comment) {
-			$in_singleline_comment = true;
-		}
-		else if (($tmp[0] == "\n" || $tmp[0] == "\r") && !$in_string && !$in_multiline_comment && $in_singleline_comment) {
-			$in_singleline_comment = false;
-		}
-		else if (!$in_multiline_comment && !$in_singleline_comment && !(preg_match("/\n|\r|\s/",$tmp[0]))) {
-			$new_str[] = $tmp[0];
-		}
-	}
-	$new_str[] = $rc;
-	return implode("",$new_str);
-}
+  namespace JSON;
 
-?>
+  function Minify($json) {
+
+    // JSON data should be a proper string
+    if (!is_string($json)) {
+      throw new Exception('JSON provided is not a valid string.');
+    }
+
+    // Register and document our regular expressions
+    $regex = [
+        'leadingSpace' =>
+            '^\s+'
+
+      , 'spaceAfterColon' =>
+            '([\"\]\}]):\s+'
+
+      , 'multilineComment' =>
+            '\/\*[\s\S]+?\*\/'
+
+      , 'inlineComment' =>
+            '([",\s\{\}\[\]]?)'   // get leading character(s), ex: , " \s \{\} \[\]
+          . '\/\/[\s\S]+?'        // get "// all stuff here"
+          . '([",\r\n\[\]\{\}])'  // get the next bit of JSON, ex: , " \{\} \[\]
+
+      , 'multiLineBreaks' =>
+            '\n{1,}'
+
+      , 'removeFirstLinebreak' =>
+            '^\n{1,}'
+    ];
+
+    // Run regex against $json to minify it
+    $json = preg_replace('/' . $regex['leadingSpace']         .'/m', '',     $json); // remove all leading spaces
+    $json = preg_replace('/' . $regex['spaceAfterColon']      .'/',  '$1: ', $json); // remove spaces after colons
+    $json = preg_replace('/' . $regex['multilineComment']     .'/',  '',     $json); // remove multiline comments
+    $json = preg_replace('/' . $regex['inlineComment']        .'/m', "$1$2", $json); // remove inline comments
+    $json = preg_replace('/' . $regex['multiLineBreaks']      .'/',  "\n",   $json); // remove multiple newlines
+    $json = preg_replace('/' . $regex['removeFirstLinebreak'] .'/',  "",     $json); // remove first line break at the top of the file
+
+    return $json;
+  }
